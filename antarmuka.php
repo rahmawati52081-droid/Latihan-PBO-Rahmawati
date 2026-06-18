@@ -2,13 +2,17 @@
 // [Tahap 6] Membuat halaman antarmuka (View) pengelompokan tiket dengan Polimorfisme
 
 // 1. Menyertakan file koneksi database dan kelas-kelas objek
-require_once 'koneksi.php'; // Pastikan nama file koneksi Anda sesuai (misal: koneksi.php)
+require_once 'koneksi.php'; 
 require_once 'Tiket.php';
-require_once 'KelasAnakTiket.php'; // File tempat kelas TiketRegular, TiketIMAX, TiketVelvet berada
+require_once 'KelasAnakTiket.php'; 
 
-// 2. Mengambil seluruh data dari tabel_tiket
+// Membuat objek dari class DatabaseConnection yang ada di koneksi.php
+$dbObj = new DatabaseConnection();
+$koneksi = $dbObj->conn; // Mengambil properti koneksi internal
+
+// 2. Mengambil seluruh data dari tabel_tiket menggunakan variabel $koneksi
 $sql = "SELECT * FROM tabel_tiket";
-$result = $conn->query($sql);
+$result = $koneksi->query($sql);
 
 // 3. Menyiapkan array penampung kelompok studio
 $listRegular = [];
@@ -17,24 +21,27 @@ $listVelvet = [];
 
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
-        // Pemetaan dari Single Table Inheritance database menjadi Objek Polimorfisme
-        if ($row['jenis_studio'] == 'regular') {
+        // Pemetaan dari database menjadi Objek Polimorfisme
+        if (strtolower($row['jenis_studio']) == 'regular') {
             $listRegular[] = new TiketRegular(
                 $row['id_tiket'], $row['nama_film'], $row['jadwal_tayang'], 
                 $row['jumlah_kursi'], $row['harga_dasar_tiket'], 
-                $row['type_audio'], $row['lokasi_baris']
+                $row['type_audio'] ?? $row['tipe_audio'] ?? 'Standar', 
+                $row['lokasi_baris']
             );
-        } elseif ($row['jenis_studio'] == 'IMAX') {
+        } elseif (strtolower($row['jenis_studio']) == 'imax') {
             $listIMAX[] = new TiketIMAX(
                 $row['id_tiket'], $row['nama_film'], $row['jadwal_tayang'], 
                 $row['jumlah_kursi'], $row['harga_dasar_tiket'], 
-                $row['kacamata_3d_id'], $row['efek_gerak_fitur']
+                $row['kacamata_3d_id'] ?? $row['kacamata3dId'] ?? 'ID-01', 
+                $row['efek_gerak_fitur'] ?? $row['efekGerakFitur'] ?? 'Standar'
             );
-        } elseif ($row['jenis_studio'] == 'Velvet') {
+        } elseif (strtolower($row['jenis_studio']) == 'velvet') {
             $listVelvet[] = new TiketVelvet(
                 $row['id_tiket'], $row['nama_film'], $row['jadwal_tayang'], 
                 $row['jumlah_kursi'], $row['harga_dasar_tiket'], 
-                $row['bantal_selimut_pack'], $row['layanan_butler']
+                $row['bantal_selimut_pack'] ?? $row['bantalSelimutPack'] ?? 'Yes', 
+                $row['layanan_butler'] ?? $row['layananButler'] ?? 'Yes'
             );
         }
     }
@@ -43,17 +50,12 @@ if ($result && $result->num_rows > 0) {
 // Fungsi bantu untuk mencetak baris tabel menggunakan Polimorfisme
 function cetakTabelTiket($daftarTiket) {
     if (empty($daftarTiket)) {
-        echo "<tr><td colspan='7' style='text-align:center;'>Tidak ada data tiket.</td></tr>";
+        echo "<tr><td colspan='7' style='text-align:center;'>Tidak ada data tiket pada kategori ini.</td></tr>";
         return;
     }
     
     foreach ($daftarTiket as $tiket) {
-        // Menggunakan Getter/Reflection atau Properti Akses jika diizinkan, 
-        // Namun karena properti parent bersifat protected, kita bisa membuat fungsi bantu 
-        // atau jika belum ada, kita tampilkan infonya lewat metode polimorfik yang wajib.
-        
-        // Catatan: Karena properti protected di parent tidak bisa langsung dibaca dari luar (instansiasi),
-        // Kita gunakan trik Reflection PHP bawaan agar tidak mengubah file induk (Tiket.php) yang sudah dikunci.
+        // Trik Reflection PHP untuk membaca properti 'protected' dari class parent (Tiket.php)
         $reflector = new ReflectionClass($tiket);
         
         $propId = $reflector->getProperty('id_tiket');
@@ -92,15 +94,15 @@ function cetakTabelTiket($daftarTiket) {
     <meta charset="UTF-8">
     <title>Daftar Tiket Bioskop - Polimorfisme View</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 30px; color: #333; }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 30px; color: #333; }
         h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
         h2 { color: #2980b9; border-bottom: 2px solid #2980b9; padding-bottom: 5px; margin-top: 40px; }
         .velvet-title { color: #8e44ad; border-bottom: 2px solid #8e44ad; }
         .regular-title { color: #27ae60; border-bottom: 2px solid #27ae60; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #34495e; color: white; font-weight: bold; }
-        tr:hover { background-color: #f9f9f9; }
+        th { background-color: #007BFF; color: white; font-weight: bold; }
+        tr:hover { background-color: #f1f1f1; }
         td.fasilitas { font-style: italic; color: #555; }
         td.total-harga { font-weight: bold; color: #c0392b; }
     </style>
